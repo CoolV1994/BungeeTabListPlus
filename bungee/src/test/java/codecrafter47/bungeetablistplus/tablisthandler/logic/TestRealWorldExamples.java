@@ -22,7 +22,9 @@ package codecrafter47.bungeetablistplus.tablisthandler.logic;
 import codecrafter47.bungeetablistplus.eventlog.EventLogger;
 import codecrafter47.bungeetablistplus.eventlog.Transformer;
 import com.google.gson.Gson;
+import de.codecrafter47.taboverlay.config.misc.ChatFormat;
 import lombok.SneakyThrows;
+import net.md_5.bungee.api.ChatColor;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -32,7 +34,6 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.UUID;
 
 import static org.junit.Assert.*;
 
@@ -137,6 +138,7 @@ public class TestRealWorldExamples extends AbstractTabListLogicTestBase {
             String line;
             int lineNumber = 0;
             boolean connected = false;
+            String fakeClientID = null;
             while ((line = reader.readLine()) != null) {
                 lineNumber++;
                 if (line.isEmpty()) {
@@ -149,7 +151,7 @@ public class TestRealWorldExamples extends AbstractTabListLogicTestBase {
                     switch (tokens[0]) {
                         case "connect":
                             assertFalse(connected);
-                            clientUUID = UUID.fromString(gson.fromJson(tokens[1], String.class));
+                            fakeClientID = gson.fromJson(tokens[1], String.class);
                             connected = true;
                             break;
                         case "disconnect":
@@ -159,6 +161,11 @@ public class TestRealWorldExamples extends AbstractTabListLogicTestBase {
                         case "pli":
                             assertTrue(connected);
                             Transformer.PlayerListPacketWrapper wrapper = gson.fromJson(tokens[1], Transformer.PlayerListPacketWrapper.class);
+                            for (Transformer.TabListItemWrapper item : wrapper.items) {
+                                if (fakeClientID.equals(item.uuid)) {
+                                    item.uuid = clientUUID.toString();
+                                }
+                            }
                             tabListHandler.onPlayerListPacket(wrapper.unwrap());
                             break;
                         case "team":
@@ -166,7 +173,7 @@ public class TestRealWorldExamples extends AbstractTabListLogicTestBase {
                             tabListHandler.onTeamPacket(gson.fromJson(tokens[1], net.md_5.bungee.protocol.packet.Team.class));
                             break;
                         case "serverSwitch":
-                            tabListHandler.onServerSwitch();
+                            tabListHandler.onServerSwitch(false);
                             break;
                         case "passThrough":
                             assertTrue(connected);
@@ -179,7 +186,10 @@ public class TestRealWorldExamples extends AbstractTabListLogicTestBase {
                         case "set":
                             assertTrue(connected);
                             EventLogger.SetData data = gson.fromJson(tokens[1], EventLogger.SetData.class);
-                            tabListHandler.setSlot(data.index, data.skin.unwrap(), data.text, data.ping);
+                            if (fakeClientID.equals(data.skin.owner)) {
+                                data.skin.owner = clientUUID.toString();
+                            }
+                            tabListHandler.setSlot(data.index, data.skin.unwrap(), ChatColor.stripColor(data.text), data.ping);
                             break;
                         default:
                             fail("Unknown token " + tokens[0]);

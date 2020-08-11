@@ -25,5 +25,9 @@ public interface ProtocolVersionProvider {
 
     boolean has18OrLater(ProxiedPlayer player);
 
-    String getVersionString(ProxiedPlayer player);
+    boolean has113OrLater(ProxiedPlayer player);
+
+    boolean is18(ProxiedPlayer player);
+
+    String getVersion(ProxiedPlayer player);
 }

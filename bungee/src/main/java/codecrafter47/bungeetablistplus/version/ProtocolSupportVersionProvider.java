@@ -44,10 +44,24 @@ public class ProtocolSupportVersionProvider implements ProtocolVersionProvider {
     }
 
     @Override
-    public String getVersionString(ProxiedPlayer player) {
-        if (!psb12) {
-            return ProtocolSupportAPI.getProtocolVersion(player).getName();
+    public boolean has113OrLater(ProxiedPlayer player) {
+        ProtocolVersion protocolVersion = ProtocolSupportAPI.getProtocolVersion(player);
+        if (psb12) {
+            return false;
+        } else {
+            return protocolVersion.getId() >= 393;
         }
-        return null;
     }
+
+    @Override
+    public boolean is18(ProxiedPlayer player) {
+        ProtocolVersion protocolVersion = ProtocolSupportAPI.getProtocolVersion(player);
+        return protocolVersion == ProtocolVersion.MINECRAFT_1_8;
+    }
+
+    @Override
+    public String getVersion(ProxiedPlayer player) {
+        return ProtocolSupportAPI.getProtocolVersion(player).getName();
+    }
+
 }

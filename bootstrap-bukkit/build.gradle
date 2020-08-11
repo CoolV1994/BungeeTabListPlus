@@ -1,0 +1,13 @@
+
+plugins {
+    id "com.github.johnrengelman.shadow" version "5.2.0"
+}
+
+dependencies {
+    implementation project(':bukkit-plugin')
+    compileOnly "org.spigotmc:spigot-api:${rootProject.ext.spigotVersion}"
+}
+
+shadowJar {
+    archiveClassifier.set(null)
+}

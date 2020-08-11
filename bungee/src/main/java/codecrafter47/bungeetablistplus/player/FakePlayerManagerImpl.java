@@ -21,56 +21,69 @@ package codecrafter47.bungeetablistplus.player;
 
 import codecrafter47.bungeetablistplus.BungeeTabListPlus;
 import codecrafter47.bungeetablistplus.api.bungee.FakePlayerManager;
-import codecrafter47.bungeetablistplus.api.bungee.IPlayer;
+import codecrafter47.bungeetablistplus.data.BTLPBungeeDataKeys;
+import com.google.common.collect.ImmutableList;
+import de.codecrafter47.taboverlay.config.icon.IconManager;
+import de.codecrafter47.taboverlay.config.player.PlayerProvider;
+import io.netty.util.concurrent.EventExecutor;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import lombok.SneakyThrows;
+import net.md_5.bungee.api.ProxyServer;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.plugin.Plugin;
 
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
+public class FakePlayerManagerImpl implements FakePlayerManager, PlayerProvider {
+    private List<FakePlayer> online = new ArrayList<>();
+    private List<String> offline;
+    private boolean randomJoinLeaveEventsEnabled;
 
-public class FakePlayerManagerImpl implements IPlayerProvider, FakePlayerManager {
-    private List<FakePlayer> online = new CopyOnWriteArrayList<>();
-    private List<String> offline = new ArrayList<>();
+    private final Set<Listener> listeners = new ReferenceOpenHashSet<>();
+
     private final Plugin plugin;
-    private boolean randomJoinLeaveEventsEnabled = false;
+    private final IconManager iconManager;
+    private final EventExecutor mainThread;
 
-    public FakePlayerManagerImpl(final Plugin plugin) {
+    public FakePlayerManagerImpl(final Plugin plugin, IconManager iconManager, EventExecutor mainThread) {
         this.plugin = plugin;
+        this.iconManager = iconManager;
+        this.mainThread = mainThread;
+
+        randomJoinLeaveEventsEnabled = true;
         if (BungeeTabListPlus.getInstance().getConfig().fakePlayers.size() > 0) {
-            randomJoinLeaveEventsEnabled = true;
             offline = new ArrayList<>(BungeeTabListPlus.getInstance().getConfig().fakePlayers);
             sanitizeFakePlayerNames();
-            plugin.getProxy().getScheduler().schedule(plugin, new Runnable() {
-                @Override
-                public void run() {
-                    triggerRandomEvent();
-                }
-            }, 10, 10, TimeUnit.SECONDS);
+        } else {
+            offline = new ArrayList<>();
         }
+        mainThread.scheduleAtFixedRate(this::triggerRandomEvent, 10, 10, TimeUnit.SECONDS);
     }
 
     private void triggerRandomEvent() {
         try {
-            if (Math.random() < 0.3 * online.size()) {
+            if (Math.random() <= 0.5 && online.size() > 0) {
                 // do a server switch
                 FakePlayer player = online.get((int) (Math.random() * online.size()));
                 if (player.isRandomServerSwitchEnabled()) {
-                    player.changeServer(new ArrayList<>(plugin.getProxy().getServers().values()).get((int) (Math.random() * plugin.getProxy().getServers().values().size())));
+                    player.changeServer(getRandomServer());
                 }
-            }
-            if (randomJoinLeaveEventsEnabled) {
+            } else if (randomJoinLeaveEventsEnabled) {
                 if (Math.random() < 0.7 && offline.size() > 0) {
                     // add player
                     String name = offline.get((int) (Math.random() * offline.size()));
-                    FakePlayer player = new FakePlayer(name, new ArrayList<>(plugin.getProxy().getServers().values()).get((int) (Math.random() * plugin.getProxy().getServers().values().size())), true);
+                    FakePlayer player = createFakePlayer(name, getRandomServer(), true, true);
                     offline.remove(name);
                     online.add(player);
+                    listeners.forEach(listener -> listener.onPlayerAdded(player));
                 } else if (online.size() > 0) {
                     // remove player
-                    offline.add(online.remove((int) (online.size() * Math.random())).getName());
+                    FakePlayer fakePlayer = online.get((int) (online.size() * Math.random()));
+                    if (BungeeTabListPlus.getInstance().getConfig().fakePlayers.contains(fakePlayer.getName())) {
+                        removeFakePlayer(fakePlayer);
+                    }
                 }
             }
         } catch (Throwable th) {
@@ -78,33 +91,65 @@ public class FakePlayerManagerImpl implements IPlayerProvider, FakePlayerManager
         }
     }
 
+    private static ServerInfo getRandomServer() {
+        ArrayList<ServerInfo> servers = new ArrayList<>(ProxyServer.getInstance().getServers().values());
+        return servers.get((int) (Math.random() * servers.size()));
+    }
+
+    public void removeConfigFakePlayers() {
+        Set<String> configFakePlayers = new HashSet<>(BungeeTabListPlus.getInstance().getConfig().fakePlayers);
+        mainThread.execute(() -> {
+            offline.clear();
+            online.removeIf(fakePlayer -> configFakePlayers.contains(fakePlayer.getName()));
+        });
+    }
+
     public void reload() {
-        offline = new ArrayList<>(BungeeTabListPlus.getInstance().getConfig().fakePlayers);
-        sanitizeFakePlayerNames();
-        online = new CopyOnWriteArrayList<>();
-        for (int i = offline.size(); i > 0; i--) {
-            triggerRandomEvent();
-        }
+        mainThread.execute(() -> {
+            offline = new ArrayList<>(BungeeTabListPlus.getInstance().getConfig().fakePlayers);
+            sanitizeFakePlayerNames();
+            for (int i = offline.size(); i > 0; i--) {
+                triggerRandomEvent();
+            }
+        });
     }
 
     private void sanitizeFakePlayerNames() {
         for (Iterator<?> iterator = offline.iterator(); iterator.hasNext(); ) {
             Object name = iterator.next();
             if (name == null || !(name instanceof String)) {
-                plugin.getLogger().warning("Invalid name used for fake player, removing. (" + Objects.toString(name) + ")");
+                plugin.getLogger().warning("Invalid name used for fake player, removing. (" + name + ")");
                 iterator.remove();
             }
         }
     }
 
     @Override
-    public Collection<IPlayer> getPlayers() {
-        return Collections.unmodifiableCollection(online);
+    @SneakyThrows
+    public Collection<FakePlayer> getPlayers() {
+        if (!mainThread.inEventLoop()) {
+            return mainThread.submit(this::getPlayers).get();
+        }
+        return ImmutableList.copyOf(online);
     }
 
     @Override
+    public void registerListener(Listener listener) {
+        listeners.add(listener);
+    }
+
+    @Override
+    public void unregisterListener(Listener listener) {
+        listeners.remove(listener);
+    }
+
+    @Override
+    @SneakyThrows
     public Collection<codecrafter47.bungeetablistplus.api.bungee.tablist.FakePlayer> getOnlineFakePlayers() {
-        return Collections.unmodifiableCollection(online);
+        if (!mainThread.inEventLoop()) {
+            return mainThread.submit(this::getOnlineFakePlayers).get();
+        }
+        return ImmutableList.copyOf(online);
     }
 
     @Override
@@ -118,19 +163,42 @@ public class FakePlayerManagerImpl implements IPlayerProvider, FakePlayerManager
     }
 
     @Override
+    @SneakyThrows
     public codecrafter47.bungeetablistplus.api.bungee.tablist.FakePlayer createFakePlayer(String name, ServerInfo server) {
-        FakePlayer fakePlayer = new FakePlayer(name, server, false);
+        return createFakePlayer(name, server, false, false);
+    }
+
+    @SneakyThrows
+    public FakePlayer createFakePlayer(String name, ServerInfo server, boolean randomServerSwitch, boolean skinFromName) {
+        if (!mainThread.inEventLoop()) {
+            return mainThread.submit(() -> createFakePlayer(name, server, randomServerSwitch, skinFromName)).get();
+        }
+        FakePlayer fakePlayer = new FakePlayer(name, server, randomServerSwitch, mainThread);
         online.add(fakePlayer);
+        listeners.forEach(listener -> listener.onPlayerAdded(fakePlayer));
+        if (skinFromName) {
+            iconManager.createIconFromName(fakePlayer.getName()).thenAcceptAsync(icon -> {
+                if (null != fakePlayer.get(BTLPBungeeDataKeys.DATA_KEY_ICON)) {
+                    fakePlayer.data.updateValue(BTLPBungeeDataKeys.DATA_KEY_ICON, icon);
+                }
+            }, mainThread);
+        }
         return fakePlayer;
     }
 
     @Override
+    @SneakyThrows
     public void removeFakePlayer(codecrafter47.bungeetablistplus.api.bungee.tablist.FakePlayer fakePlayer) {
+        if (!mainThread.inEventLoop()) {
+            mainThread.submit(() -> removeFakePlayer(fakePlayer)).sync();
+            return;
+        }
         FakePlayer player = (FakePlayer) fakePlayer;
         if (online.remove(player)) {
             if (BungeeTabListPlus.getInstance().getConfig().fakePlayers.contains(player.getName())) {
                 offline.add(player.getName());
             }
+            listeners.forEach(listener -> listener.onPlayerRemoved(player));
         }
     }
 }

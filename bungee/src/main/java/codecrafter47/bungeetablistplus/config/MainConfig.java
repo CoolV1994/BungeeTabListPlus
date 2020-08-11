@@ -18,68 +18,22 @@
  */
 package codecrafter47.bungeetablistplus.config;
 
-import codecrafter47.bungeetablistplus.yamlconfig.Comment;
-import codecrafter47.bungeetablistplus.yamlconfig.Path;
-import codecrafter47.bungeetablistplus.yamlconfig.UpdatableConfig;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
+import com.google.common.collect.ImmutableList;
+import de.codecrafter47.taboverlay.config.dsl.CustomPlaceholderConfiguration;
+import de.codecrafter47.taboverlay.config.dsl.yaml.UpdateableConfig;
+import de.codecrafter47.taboverlay.config.dsl.yaml.YamlUtil;
+import lombok.val;
+import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.nodes.MappingNode;
-import org.yaml.snakeyaml.nodes.Node;
-import org.yaml.snakeyaml.nodes.ScalarNode;
+import org.yaml.snakeyaml.nodes.Tag;
 
+import java.io.IOException;
+import java.io.Writer;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.*;
 
-import static codecrafter47.bungeetablistplus.yamlconfig.YamlUtil.*;
-
-public class MainConfig implements UpdatableConfig {
-
-    @Comment({
-            "time in seconds after which the tabList will be resend to all players",
-            "set this to -1 to disable scheduled update of the tabList",
-            "This option will be removed soon. Don't use it anymore."
-    })
-    public double tablistUpdateInterval = 1;
-
-    @Comment({
-            "whether tabList should be resend if a player joins or leaves the server",
-            "This option will be removed soon. Don't use it anymore."
-    })
-    public boolean updateOnPlayerJoinLeave = true;
-
-    @Comment({
-            "whether tablist should be resend if a player switches the server",
-            "This option will be removed soon. Don't use it anymore."
-    })
-    public boolean updateOnServerChange = true;
-
-    @Comment({
-            "You can limit the number of characters per slot here",
-            "Color codes do not count as a character; -1 means unlimited",
-            "This option will be removed soon. Don't use it anymore."
-    })
-    public int charLimit = -1;
-
-    @Comment({
-            "Decide from where BungeeTabListPlus takes information like permissions,",
-            "prefix, suffix and group.",
-            "Possible values:",
-            "AUTO        - take best source",
-            "BUKKIT      - take information from Bukkit/Vault",
-            "BUNGEEPERMS - take information from BungeePerms",
-            "BUNGEE      - take group from bungee, prefix from config.yml, permissions from bungee",
-            "This option will be removed soon. Don't use it anymore."
-    })
-    public String permissionSource = PermissionSource.AUTO.toString();
-
-    public PermissionSource permissionSourceValue() {
-        return PermissionSource.valueOf(permissionSource.toUpperCase(Locale.ROOT));
-    }
-
-    @Comment({
-            "whether to show players in spectator mode",
-            "This option will be removed soon. Don't use it anymore."
-    })
-    public boolean showPlayersInGamemode3 = true;
+public class MainConfig implements UpdateableConfig {
 
     @Comment({
             "if enabled the plugin checks for new versions automatically.",
@@ -95,52 +49,6 @@ public class MainConfig implements UpdatableConfig {
     public boolean notifyAdminsIfUpdateAvailable = true;
 
     @Comment({
-            "If this is set to true and the plugin encounters an issue a bug report is sent automatically",
-            "Bug reports do not contain any sensitive or identifying information",
-            "Bug reports contain the plugin name, plugin version and the error message that also appears in the server log"
-    })
-    public boolean automaticallySendBugReports = true;
-
-    @Comment({
-            "This option will be removed soon. Don't use it anymore.",
-            "See https://github.com/CodeCrafter47/BungeeTabListPlus/wiki/Updating#server-alias"
-    })
-    public HashMap<String, String> serverAlias = Maps.newHashMap(ImmutableMap.<String, String>builder()
-            .put("factions", "Factions")
-            .put("lobby0", "Lobby")
-            .put("lobby1", "Lobby")
-            .put("sg", "Survival Games")
-            .build());
-
-    @Comment({
-            "This option will be removed soon. Don't use it anymore.",
-            "See https://github.com/CodeCrafter47/BungeeTabListPlus/wiki/Updating#world-alias"
-    })
-    public HashMap<String, String> worldAlias = Maps.newHashMap(ImmutableMap.<String, String>builder()
-            .put("factions:world", "Overworld")
-            .put("factions:world_nether", "Nether")
-            .put("factions:world_end", "The End")
-            .build());
-
-    @Comment({
-            "This option will be removed soon. Don't use it anymore.",
-            "See https://github.com/CodeCrafter47/BungeeTabListPlus/wiki/Updating#server-prefix"
-    })
-    public HashMap<String, String> serverPrefixes = Maps.newHashMap(ImmutableMap.<String, String>builder()
-            .put("Minigames", "&8(&bM&8)")
-            .put("SkyBlock", "&8(&dS&8) ")
-            .build());
-
-    @Comment({
-            "This option will be removed soon. Don't use it anymore.",
-            "See https://github.com/CodeCrafter47/BungeeTabListPlus/wiki/Updating#prefixes-in-configyml"
-    })
-    public HashMap<String, String> prefixes = Maps.newHashMap(ImmutableMap.<String, String>builder()
-            .put("default", "")
-            .put("admin", "&c[A] ")
-            .build());
-
-    @Comment({
             "Interval (in seconds) at which all servers of your network get pinged to check whether they are online",
             "If you intend to use the {onlineState:SERVER} variable set this to 2 or any value you like",
             "setting this to -1 disables this feature"
@@ -148,34 +56,19 @@ public class MainConfig implements UpdatableConfig {
     public int pingDelay = -1;
 
     @Comment({
-            "This option will be removed soon. Don't use it anymore.",
-            "See https://github.com/CodeCrafter47/BungeeTabListPlus/wiki/Updating#the-onlinestate-placeholder"
-    })
-    @Path("online-text")
-    public String online_text = "&2 ON";
-
-    @Comment({
-            "This option will be removed soon. Don't use it anymore.",
-            "See https://github.com/CodeCrafter47/BungeeTabListPlus/wiki/Updating#the-onlinestate-placeholder"
-    })
-    @Path("offline-text")
-    public String offline_text = "&c OFF";
-
-    @Comment({
             "those fakeplayers will randomly appear on the tablist. If you don't put any names there then no fakeplayers will appear"
     })
     public List<String> fakePlayers = new ArrayList<>();
 
     @Comment({
-            "servers which you wish to show their own tabList (The one provided by bukkit)"
+            "Servers which you wish to show their own tabList (The one provided by bukkit)",
+            "Players on these servers don't see the custom tab list provided by BungeeTabListPlus"
     })
     public List<String> excludeServers = new ArrayList<>();
 
     @Comment({
-            "servers which you wish to hide from the global tabList",
-            "Note that this is different from excludeServers above: this hides all players on the hidden servers from appearing",
-            "on the tablist, whereas excluded servers' players are still on the BungeeTabListPlus tablist, but they do not see",
-            "the global tab list"
+            "Players on these servers are hidden from the tab list.",
+            "Doesn't necessarily hide the server from the tab list."
     })
     public List<String> hiddenServers = new ArrayList<>();
 
@@ -186,65 +79,127 @@ public class MainConfig implements UpdatableConfig {
     })
     public List<String> hiddenPlayers = new ArrayList<>();
 
-    // todo add more examples to comment, people keep asking for this
     @Comment({
             "Time zone to use for the {time} variable",
             "Can be full name like \"America/Los_Angeles\"",
             "or custom id like \"GMT+8\""
     })
     @Path("time-zone")
-    public String timezone = TimeZone.getDefault().getID();
+    public String time_zone = TimeZone.getDefault().getID();
 
     @Comment("Custom placeholders")
-    public Map<String, CustomPlaceholder> customPlaceholders = new HashMap<>();
+    public Map<String, CustomPlaceholderConfiguration> customPlaceholders = new HashMap<>();
 
     public TimeZone getTimeZone() {
-        return TimeZone.getTimeZone(timezone);
+        return TimeZone.getTimeZone(time_zone);
     }
 
-    public String getServerAlias(String name) {
-        if (serverAlias.get(name) != null) {
-            return serverAlias.get(name);
-        }
-        return name;
-    }
+    @Comment({
+            "Disables the custom tab list for players in spectators mode.",
+            "As a result those players will see the vanilla tab list of the server.",
+            "If you do not use this option players in spectator mode will see the ",
+            "fake players created by BungeeTabListPlus in the teleport menu."
+    })
+    public boolean disableCustomTabListForSpectators = true;
+
+    @Comment({
+            "Removes the `~BTLP Slot ##` entries from tab completion if the.",
+            "size of the tab list is 80 slots."
+    })
+    public boolean experimentalTabCompleteFixForTabSize80 = false;
+
+    @Comment({
+            "Replaces the `~BTLP Slot ##` entries in tab completion with smileys"
+    })
+    public boolean experimentalTabCompleteSmileys = false;
+
+    public transient boolean needWrite = false;
 
     @Override
-    public void update(MappingNode section) {
-        if (contains(section, "tablistUpdateIntervall") && !contains(section, "tablistUpdateInterval")) {
-            put(section, "tablistUpdateInterval", get(section, "tablistUpdateIntervall"));
-            remove(section, "tablistUpdateIntervall");
+    public void update(MappingNode node) {
+        val outdatedConfigOptions = ImmutableList.<String>of("tablistUpdateIntervall",
+                "tablistUpdateInterval",
+                "updateOnPlayerJoinLeave",
+                "updateOnServerChange",
+                "offline",
+                "offline-text",
+                "online",
+                "online-text",
+                "permissionSource",
+                "useScoreboardToBypass16CharLimit",
+                "autoExcludeServers",
+                "showPlayersInGamemode3",
+                "serverAlias",
+                "worldAlias",
+                "serverPrefixes",
+                "prefixes",
+                "charLimit",
+                "automaticallySendBugReports");
+
+        for (String option : outdatedConfigOptions) {
+            needWrite |= YamlUtil.contains(node, option);
+            YamlUtil.remove(node, option);
         }
 
-        if (!contains(section, "offline-text") && contains(section, "offline") && get(section, "offline") instanceof MappingNode) {
-            MappingNode subsection = (MappingNode) get(section, "offline");
-            if (contains(subsection, "text")) {
-                put(section, "offline-text", get(subsection, "text"));
-            }
-            remove(section, "offline");
-        }
+        val newConfigOptions = ImmutableList.<String>of(
+                "disableCustomTabListForSpectators",
+                "experimentalTabCompleteFixForTabSize80",
+                "experimentalTabCompleteSmileys"
+        );
 
-        if (!contains(section, "online-text") && contains(section, "online") && get(section, "online") instanceof MappingNode) {
-            MappingNode subsection = (MappingNode) get(section, "online");
-            if (contains(subsection, "text")) {
-                put(section, "online-text", get(subsection, "text"));
-            }
-            remove(section, "online");
+        for (String option : newConfigOptions) {
+            needWrite |= !YamlUtil.contains(node, option);
         }
+    }
 
-        if (contains(section, "permissionSource")) {
-            Node permissionSource = get(section, "permissionSource");
-            if (permissionSource instanceof ScalarNode) {
-                String value = ((ScalarNode) permissionSource).getValue().toUpperCase(Locale.ROOT);
-                if (value.equals("BUKKITPERMISSIONSEX")) {
-                    value = "BUKKIT";
+    public void writeWithComments(Writer writer, Yaml yaml) throws IOException {
+        writeCommentLine(writer, "This is the configuration file of BungeeTabListPlus");
+        writeCommentLine(writer, "See https://github.com/CodeCrafter47/BungeeTabListPlus/wiki for additional information");
+
+        String ser = yaml.dumpAs(this, Tag.MAP, null);
+
+        Map<String, String[]> comments = new HashMap<>();
+        for (Field field : MainConfig.class.getDeclaredFields()) {
+            Comment comment = field.getAnnotation(Comment.class);
+            if (comment != null) {
+                int modifiers = field.getModifiers();
+                if (!Modifier.isStatic(modifiers) && !Modifier.isTransient(modifiers)) {
+                    if (Modifier.isPublic(modifiers)) {
+                        Path path = field.getAnnotation(Path.class);
+                        comments.put(path != null ? path.value() : field.getName(), comment.value());
+                    }
                 }
-                put(section, "permissionSource", new ScalarNode(permissionSource.getTag(), permissionSource.isResolved(), value, permissionSource.getStartMark(), permissionSource.getEndMark(), ((ScalarNode) permissionSource).getStyle()));
             }
         }
 
-        remove(section, "useScoreboardToBypass16CharLimit");
+        ArrayList<String> lines = new ArrayList<>(Arrays.asList(ser.split("\n")));
 
-        remove(section, "autoExcludeServers");
+        ListIterator<String> iterator = lines.listIterator();
+
+        while (iterator.hasNext()) {
+            String line = iterator.next();
+            for (Map.Entry<String, String[]> entry : comments.entrySet()) {
+                if (line.startsWith(entry.getKey())) {
+                    String[] value = entry.getValue();
+                    iterator.previous();
+                    iterator.add("");
+                    for (String comment : value) {
+                        iterator.add("# " + comment);
+                    }
+                    iterator.next();
+                }
+            }
+        }
+
+        for (String line : lines) {
+            writer.write(line);
+            writer.write("\n");
+        }
+
+        writer.close();
+    }
+
+    private static void writeCommentLine(Writer writer, String comment) throws IOException {
+        writer.write("# " + comment + "\n");
     }
 }
